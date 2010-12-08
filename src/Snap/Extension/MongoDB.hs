@@ -22,6 +22,11 @@ module Snap.Extension.MongoDB
 
 import           Control.Monad.Trans
 import           Control.Monad.Reader
+import           Data.ByteString.Internal (c2w, w2c)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B8
+import           Data.Word (Word8)
+
 
 import           Database.MongoDB
 import           Snap.Types
@@ -34,3 +39,19 @@ class MonadSnap m => MonadMongoDB m where
   ----------------------------------------------------------------------------
   -- | 
   withDB :: ReaderT Database (Action m) a -> m (Either Failure a)
+
+
+------------------------------------------------------------------------------
+-- | Get strict ByteString to work directly with BSON auto-casting
+instance Val B8.ByteString where
+    val = val . B8.unpack
+    cast' x = fmap B8.pack . cast' $ x
+    cast' _ = Nothing
+
+
+------------------------------------------------------------------------------
+-- | Get [Octet] to work directly with BSON auto-casting
+instance Val [Word8] where
+    val = val . fmap w2c
+    cast' x = fmap (fmap c2w) . cast' $ x
+    cast' _ = Nothing
