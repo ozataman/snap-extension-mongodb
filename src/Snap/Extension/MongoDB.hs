@@ -37,8 +37,17 @@ import           Snap.Types
 class MonadSnap m => MonadMongoDB m where
 
   ----------------------------------------------------------------------------
-  -- | 
+  -- | Run given MongoDB action against the database
   withDB :: ReaderT Database (Action m) a -> m (Either Failure a)
+
+
+  ----------------------------------------------------------------------------
+  -- | Same as 'withDB' but calls 'error' if there is an exception
+  withDB' :: ReaderT Database (Action m) a -> m a
+  withDB' run = do
+    r <- withDB run 
+    either (error . show) return r
+
 
 
 ------------------------------------------------------------------------------
@@ -55,3 +64,4 @@ instance Val [Word8] where
     val = val . fmap w2c
     cast' x = fmap (fmap c2w) . cast' $ x
     cast' _ = Nothing
+
