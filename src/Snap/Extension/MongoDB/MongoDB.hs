@@ -60,10 +60,9 @@ instance InitializerState MongoDBState where
   mkReload = const $ return ()
 
 
-
 ------------------------------------------------------------------------------
 -- |
 instance HasMongoDBState s => MonadMongoDB (SnapExtend s) where
   withDB run = do
     (MongoDBState pool db) <- asks getMongoDBState
-    access safe Master pool $ use db run
+    liftIO . access safe Master pool $ use db run
