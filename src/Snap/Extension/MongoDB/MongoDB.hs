@@ -25,7 +25,7 @@ import           Snap.Extension.MongoDB
 -- | MongoDB State
 data MongoDBState = MongoDBState
     { connPool :: ConnPool Host
-    , appDatabase :: Database 
+    , appDatabase :: Database
     }
 
 
@@ -42,12 +42,12 @@ class HasMongoDBState s where
 ------------------------------------------------------------------------------
 -- |
 mongoDBInitializer :: Host
-                   -> Int 
-                   -> UString 
-                   -> Initializer MongoDBState 
+                   -> Int
+                   -> UString
+                   -> Initializer MongoDBState
 mongoDBInitializer h n db = do
   mongoState <- liftIO $ do
-    pool <- newConnPool n h 
+    pool <- newConnPool Internet n h
     return $ MongoDBState pool (Database db)
   mkInitializer mongoState
 
