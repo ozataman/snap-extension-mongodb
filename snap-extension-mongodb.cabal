@@ -1,5 +1,5 @@
 Name:                snap-extension-mongodb
-Version:             0.1.3
+Version:             0.2.0.0
 Synopsis:            MongoDB extension for Snap Framework
 Homepage:            https://github.com/ozataman/snap-extension-mongodb
 License:             BSD3
