@@ -27,6 +27,12 @@ module Snap.Extension.MongoDB
     -- ** Initializing Your Applications
   , mongoDBInitializer
 
+
+    -- * Utility Functions
+  , getObjId
+  , bs2objid
+  , objid2bs
+
     -- * MongoDB Library 
     -- | Exported for your convenience.
   , module Database.MongoDB
@@ -46,6 +52,8 @@ import qualified Data.CompactString.UTF8 as CS
 import qualified Data.Map as Map
 import           Data.Map (Map)
 import           Data.Word (Word8)
+
+import           Numeric (showHex, readHex)
 
 import           Database.MongoDB
 
@@ -161,3 +169,37 @@ instance HasMongoDBState s => MonadMongoDB (SnapExtend s) where
   withDB run = do
     (MongoDBState pool db) <- asks getMongoDBState
     liftIO . access safe Master pool $ use db run
+
+
+
+
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+-- Convenience Functions
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------
+-- | Convert 'ObjectId' into 'ByteString'
+objid2bs :: ObjectId -> ByteString
+objid2bs (Oid a b) = B8.pack . showHex a . showChar '-' . showHex b $ ""
+
+
+------------------------------------------------------------------------------
+-- | Convert 'ByteString' into 'ObjectId'
+bs2objid :: ByteString -> ObjectId
+bs2objid bs = Oid a b
+  where (a',b') = break (== '-') . B8.unpack $ bs
+        a = fst . head . readHex $ a'
+        b = fst . head . readHex $ drop 1 b'
+
+
+------------------------------------------------------------------------------
+-- | If the 'Document' has an 'ObjectId' in the given field, return it as
+-- 'ByteString'
+getObjId :: UString -> Document -> Maybe ByteString
+getObjId v d = Database.MongoDB.lookup v d >>= fmap objid2bs
+
+
+
