@@ -13,7 +13,7 @@ and use 'mongoDBInitializer' in your application's initializer. Your
 
 -}
 
-module Snap.Extension.MongoDB
+module Snap.Extension.DB.MongoDB
   ( 
     -- * MongoDB Functionality Inside Snap Monad 
     MonadMongoDB(..)
