@@ -32,6 +32,11 @@ module Snap.Extension.DB.MongoDB
   , getObjId
   , bs2objid
   , objid2bs
+  , lp
+
+    -- * Snap.Auth Interface
+  , docToAuthUser
+  , authUserToDoc
 
     -- * MongoDB Library 
     -- | Exported for your convenience.
@@ -49,15 +54,20 @@ import qualified Data.ByteString.Char8 as B8
 import           Data.ByteString (ByteString)
 import qualified Data.CompactString.Internal as CSI
 import qualified Data.CompactString.UTF8 as CS
+import           Data.UString (u)
 import qualified Data.Map as Map
 import           Data.Map (Map)
 import           Data.Word (Word8)
+import           Data.Time
 
 import           Numeric (showHex, readHex)
+import           Safe
 
 import           Database.MongoDB
+import           Database.MongoDB as DB
 
 import           Snap.Types
+import           Snap.Auth
 import           Snap.Extension
 
 
@@ -109,9 +119,7 @@ instance (Val b) => Val (Map UString b) where
 instance (Val b) => Val (Map ByteString b) where
     val = val . Map.fromList . map convert . Map.toList 
       where convert (k,v) = (bs2cs k, v)
-            bs2cs :: ByteString -> UString
-            bs2cs = CSI.CS
-    cast' d@(Doc x) = fmap (Map.fromList . map convert . Map.toList) csiCast
+    cast' d@(Doc _) = fmap (Map.fromList . map convert . Map.toList) csiCast
       where convert ((CSI.CS k), v) = (k, v)
             csiCast :: (Val c) => Maybe (Map UString c)
             csiCast = cast' d 
@@ -170,14 +178,23 @@ instance HasMongoDBState s => MonadMongoDB (SnapExtend s) where
     (MongoDBState pool db) <- asks getMongoDBState
     liftIO . access safe Master pool $ use db run
 
-
-
+ 
 
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 -- Convenience Functions
 ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------
+-- | Add timestamps to any document.
+addTimeStamps :: (MonadMongoDB m) => Document -> m Document
+addTimeStamps d = do
+  t <- liftIO getCurrentTime
+  let tsc = ["created_at" =: t]
+  let tsu = ["updated_at" =: t]
+  return $ tsu `DB.merge` d `DB.merge` tsc
 
 
 ------------------------------------------------------------------------------
@@ -195,11 +212,115 @@ bs2objid bs = Oid a b
         b = fst . head . readHex $ drop 1 b'
 
 
+bs2cs :: ByteString -> UString
+bs2cs = CSI.CS
+
+
 ------------------------------------------------------------------------------
 -- | If the 'Document' has an 'ObjectId' in the given field, return it as
 -- 'ByteString'
 getObjId :: UString -> Document -> Maybe ByteString
 getObjId v d = Database.MongoDB.lookup v d >>= fmap objid2bs
 
+
+-- | Easy lookup from Snap's 'Params'
+lp :: ByteString -> Params -> Maybe ByteString
+lp n m = Map.lookup n m >>= headMay
+
+
+
+------------------------------------------------------------------------------
+-- Snap Auth Interface
+------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------
+-- | Make conversion to-from UserId a bit easier
+instance Val UserId where
+    val (UserId bs) = val $ bs2objid bs 
+    cast' x = fmap UserId . fmap objid2bs . cast' $ x
+
+
+------------------------------------------------------------------------------
+-- | Turn a page from the database into 'AuthUser'
+docToAuthUser :: Document -> Maybe AuthUser
+docToAuthUser v = do
+  uid <- DB.lookup "_id" v
+  pass <- DB.lookup "password" v
+  salt <- DB.lookup "salt" v
+  return emptyAuthUser
+            { userId = Just uid 
+            , userEmail = DB.lookup "email" v
+            , userPassword = Just $ Encrypted pass 
+            , userSalt = Just salt
+            , userActivatedAt = DB.lookup "activated_at" v
+            , userSuspendedAt = DB.lookup "suspended_at" v
+            , userCreatedAt = DB.lookup "created_at" v
+            , userUpdatedAt = DB.lookup "updated_at" v
+            }
+
+
+------------------------------------------------------------------------------
+-- | Turn an 'AuthUser' into a 'Document' ready to be commited to DB.
+authUserToDoc :: AuthUser -> Document
+authUserToDoc usr = fields'
+  where
+    fields' = foldr step [] fields
+    step x acc = maybe acc (: acc) x
+    decidePass (Encrypted x) = Just ("password" =: x)
+    decidePass _ = error "Can't save user without a proper password set"
+    fields = 
+      [ userId usr >>= return . ("_id" =:) 
+      , Just $ ("email" =: userEmail usr)
+      , userPassword usr >>= decidePass
+      , Just $ ("salt" =: userSalt usr)
+      , Just $ ("activated_at" =: userActivatedAt usr)
+      , Just $ ("suspended_at" =: userSuspendedAt usr)
+      ]
+
+
+instance (MonadAuth m, MonadMongoDB m) => MonadAuthUser m Document where
+
+  getUserInternal uid = do
+    t' <- fmap u authUserTable
+    r <- withDB' $ findOne (select ["_id" =: uid] t')
+    return $ do
+      d <- r 
+      (,) <$> docToAuthUser d <*> r
+
+
+  getUserExternal (EUId ps) = do
+    lookup_keys <- authAuthenticationKeys
+    t' <- fmap u authUserTable
+    r <- withDB' $ findOne (select (buildConditions lookup_keys) t')
+    return $ do
+      d <- r 
+      (,) <$> docToAuthUser d <*> r
+    where 
+      buildConditions ks = map cond ks
+        where cond k = bs2cs k =: (fmap bs2cs $ lp k ps)
+
+
+  saveAuthUser (user, d0) = do
+    t' <- fmap u authUserTable
+    user' <- updateUser
+    d <- addTimeStamps $ authUserToDoc user'
+    let d' = d `DB.merge` d0
+    case userId user of
+      Just _ -> do    -- Existing user
+        withDB' $ save t' d' >> return Nothing
+        return . Just $ user'
+      Nothing -> do   -- New user
+        uid <- withDB' $ insert t' d' 
+        return . Just $ user' { userId = cast' uid }
+    where
+      updateUser = case userPassword user of
+        Just (ClearText x) -> updateUserPass x
+        Nothing -> error "Can't save user without any form of password"
+        _ -> return user
+      updateUserPass x = do
+        (newsalt, newpass) <- mkAuthCredentials x
+        return $ user { userPassword = Just (Encrypted newpass)
+                      , userSalt = Just newsalt }
 
 
