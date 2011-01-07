@@ -1,5 +1,5 @@
 Name:                snap-extension-mongodb
-Version:             0.2.2.0
+Version:             0.3.0.0
 Synopsis:            MongoDB extension for Snap Framework
 Homepage:            https://github.com/ozataman/snap-extension-mongodb
 License:             BSD3
@@ -21,13 +21,19 @@ Library
   Build-depends:       
       base >= 4 && < 5
     , bytestring >= 0.9
+    , bson
     , compact-string-fix >= 0.3.1 && < 0.4
     , containers >= 0.3 && < 0.4
     , mongoDB == 0.9
     , mtl >= 2 && < 3
+    , safe
     , snap >= 0.3 && < 0.4
     , snap-core >= 0.3 && < 0.4
+    , snap-auth >= 0.1
+    , time
   
   extensions: 
       OverloadedStrings
     , FlexibleInstances
+    , TypeSynonymInstances
+    , MultiParamTypeClasses
