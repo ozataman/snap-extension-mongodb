@@ -35,6 +35,7 @@ module Snap.Extension.DB.MongoDB
   , lp
 
     -- * Snap.Auth Interface
+    -- $monadauth
   , docToAuthUser
   , authUserToDoc
 
@@ -70,6 +71,15 @@ import           Snap.Types
 import           Snap.Auth
 import           Snap.Extension
 
+
+-- $monadauth
+-- This package gives you free MonadAuthUser instances of your application
+-- monad. Once your application becomes MonadMongoDB, if it is also MonadAuth,
+-- it will automatically become MonadAuthUser.
+--
+-- This means you can immediately start using authentication functionality
+-- without worrying about schema, fields, etc. This library will take care of
+-- that for you.
 
 ------------------------------------------------------------------------------
 -- | The 'MonadMongoDB' class. Minimal complete definition:
@@ -257,6 +267,8 @@ docToAuthUser v = do
             , userSuspendedAt = DB.lookup "suspended_at" v
             , userCreatedAt = DB.lookup "created_at" v
             , userUpdatedAt = DB.lookup "updated_at" v
+            , userLoginCount = maybe 0 id $ DB.lookup "login_count" v
+            , userFailedLoginCount = maybe 0 id $ DB.lookup "failed_login_count" v
             }
 
 
@@ -270,12 +282,15 @@ authUserToDoc usr = fields'
     decidePass (Encrypted x) = Just ("password" =: x)
     decidePass _ = error "Can't save user without a proper password set"
     fields = 
-      [ userId usr >>= return . ("_id" =:) 
+      [ userId usr >>= return . ("_id" =:)    -- only if present
+      , userCreatedAt usr >>= return . ("created_at" =:)  -- only if present
       , Just $ ("email" =: userEmail usr)
       , userPassword usr >>= decidePass
       , Just $ ("salt" =: userSalt usr)
       , Just $ ("activated_at" =: userActivatedAt usr)
       , Just $ ("suspended_at" =: userSuspendedAt usr)
+      , Just $ ("login_count" =: userLoginCount usr)
+      , Just $ ("failed_login_count" =: userFailedLoginCount usr)
       ]
 
 
