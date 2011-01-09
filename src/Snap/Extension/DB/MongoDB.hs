@@ -267,6 +267,10 @@ docToAuthUser v = do
             , userSuspendedAt = DB.lookup "suspended_at" v
             , userCreatedAt = DB.lookup "created_at" v
             , userUpdatedAt = DB.lookup "updated_at" v
+            , userCurrentLoginAt = DB.lookup "current_login_at" v
+            , userLastLoginAt = DB.lookup "last_login_at" v
+            , userCurrentLoginIp = DB.lookup "current_login_ip" v
+            , userLastLoginIp = DB.lookup "last_login_ip" v
             , userLoginCount = maybe 0 id $ DB.lookup "login_count" v
             , userFailedLoginCount = maybe 0 id $ DB.lookup "failed_login_count" v
             }
@@ -289,6 +293,10 @@ authUserToDoc usr = fields'
       , Just $ ("salt" =: userSalt usr)
       , Just $ ("activated_at" =: userActivatedAt usr)
       , Just $ ("suspended_at" =: userSuspendedAt usr)
+      , Just $ ("current_login_at" =: userCurrentLoginAt usr)
+      , Just $ ("last_login_at" =: userLastLoginAt usr)
+      , Just $ ("current_login_ip" =: userCurrentLoginIp usr)
+      , Just $ ("last_login_ip" =: userLastLoginIp usr)
       , Just $ ("login_count" =: userLoginCount usr)
       , Just $ ("failed_login_count" =: userFailedLoginCount usr)
       ]
