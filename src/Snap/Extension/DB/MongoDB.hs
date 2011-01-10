@@ -265,6 +265,7 @@ docToAuthUser v = do
             , userSalt = Just salt
             , userActivatedAt = DB.lookup "activated_at" v
             , userSuspendedAt = DB.lookup "suspended_at" v
+            , userPersistenceToken = DB.lookup "persistence_token" v
             , userCreatedAt = DB.lookup "created_at" v
             , userUpdatedAt = DB.lookup "updated_at" v
             , userCurrentLoginAt = DB.lookup "current_login_at" v
@@ -293,6 +294,7 @@ authUserToDoc usr = fields'
       , Just $ ("salt" =: userSalt usr)
       , Just $ ("activated_at" =: userActivatedAt usr)
       , Just $ ("suspended_at" =: userSuspendedAt usr)
+      , Just $ ("persistence_token" =: userPersistenceToken usr)
       , Just $ ("current_login_at" =: userCurrentLoginAt usr)
       , Just $ ("last_login_at" =: userLastLoginAt usr)
       , Just $ ("current_login_ip" =: userCurrentLoginIp usr)
@@ -309,6 +311,14 @@ instance (MonadAuth m, MonadMongoDB m) => MonadAuthUser m Document where
     r <- withDB' $ findOne (select ["_id" =: uid] t')
     return $ do
       d <- r 
+      (,) <$> docToAuthUser d <*> r
+
+
+  getUserByRememberToken t = do
+    t' <- fmap u authUserTable
+    r <- withDB' $ findOne (select ["persistence_token" =: t] t')
+    return $ do
+      d <- r
       (,) <$> docToAuthUser d <*> r
 
 
