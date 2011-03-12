@@ -53,6 +53,7 @@ import           Data.ByteString.Internal (c2w, w2c)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import           Data.ByteString (ByteString)
+import qualified Data.Text as T
 import qualified Data.CompactString.Internal as CSI
 import qualified Data.CompactString.UTF8 as CS
 import           Data.UString (u)
@@ -98,12 +99,18 @@ class MonadSnap m => MonadMongoDB m where
     either (error . show) return r
 
 
-
 ------------------------------------------------------------------------------
--- | Get strict ByteString to work directly with BSON auto-casting
+-- | Get strict 'ByteString' to work directly with BSON auto-casting
 instance Val B8.ByteString where
     val = val . B8.unpack
     cast' x = fmap B8.pack . cast' $ x
+
+
+------------------------------------------------------------------------------
+-- | Get strict 'Text' to work directly with BSON auto-casting
+instance Val T.Text where
+    val = val . T.unpack
+    cast' x = fmap T.pack . cast' $ x
 
 
 ------------------------------------------------------------------------------
