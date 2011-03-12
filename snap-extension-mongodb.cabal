@@ -23,7 +23,7 @@ Library
     , bytestring >= 0.9
     , bson
     , compact-string-fix >= 0.3.1 && < 0.4
-    , containers >= 0.3 && < 0.4
+    , containers >= 0.3 
     , mongoDB == 0.9
     , mtl >= 2 && < 3
     , safe
