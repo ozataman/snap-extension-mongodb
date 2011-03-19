@@ -39,6 +39,8 @@ module Snap.Extension.DB.MongoDB
   , docToAuthUser
   , authUserToDoc
 
+  , module Snap.Extension.DB.MongoDB.Instances
+
     -- * MongoDB Library 
     -- | Exported for your convenience.
   , module Database.MongoDB
@@ -62,15 +64,18 @@ import           Data.Map (Map)
 import           Data.Word (Word8)
 import           Data.Time
 
-import           Numeric (showHex, readHex)
-import           Safe
-
 import           Database.MongoDB
 import           Database.MongoDB as DB
+
+import           Numeric (showHex, readHex)
+import           Safe
 
 import           Snap.Types
 import           Snap.Auth
 import           Snap.Extension
+
+import           Snap.Extension.DB.MongoDB.Instances
+import           Snap.Extension.DB.MongoDB.Utils
 
 
 -- $monadauth
@@ -98,49 +103,6 @@ class MonadSnap m => MonadMongoDB m where
     r <- withDB run 
     either (error . show) return r
 
-
-------------------------------------------------------------------------------
--- | Get strict 'ByteString' to work directly with BSON auto-casting
-instance Val B8.ByteString where
-    val = val . B8.unpack
-    cast' x = fmap B8.pack . cast' $ x
-
-
-------------------------------------------------------------------------------
--- | Get strict 'Text' to work directly with BSON auto-casting
-instance Val T.Text where
-    val = val . T.unpack
-    cast' x = fmap T.pack . cast' $ x
-
-
-------------------------------------------------------------------------------
--- | Get [Octet] to work directly with BSON auto-casting
-instance Val [Word8] where
-    val = val . fmap w2c
-    cast' x = fmap (fmap c2w) . cast' $ x
-
-
-------------------------------------------------------------------------------
--- | Make Map UString b an instance of Val for easy conversion of values
-instance (Val b) => Val (Map UString b) where
-    val m = val doc
-      where f (k,v) = k =: v
-            doc = map f $ Map.toList m
-    cast' (Doc x) = Map.fromList <$> mapM separate x 
-      where separate ((:=) k v) = (,) <$> (return k) <*> (cast' v)
-    cast' _ = Nothing
-
-
-------------------------------------------------------------------------------
--- | Make Map ByteString b an instance of Val for easy conversion of values
-instance (Val b) => Val (Map ByteString b) where
-    val = val . Map.fromList . map convert . Map.toList 
-      where convert (k,v) = (bs2cs k, v)
-    cast' d@(Doc _) = fmap (Map.fromList . map convert . Map.toList) csiCast
-      where convert ((CSI.CS k), v) = (k, v)
-            csiCast :: (Val c) => Maybe (Map UString c)
-            csiCast = cast' d 
-    cast' _ = Nothing
             
 
 ------------------------------------------------------------------------------
@@ -195,14 +157,10 @@ instance HasMongoDBState s => MonadMongoDB (SnapExtend s) where
     (MongoDBState pool db) <- asks getMongoDBState
     liftIO . access safe Master pool $ use db run
 
- 
 
-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 -- Convenience Functions
 ------------------------------------------------------------------------------
-------------------------------------------------------------------------------
-
 
 ------------------------------------------------------------------------------
 -- | Add timestamps to any document.
@@ -212,51 +170,11 @@ addTimeStamps d = do
   let tsc = ["created_at" =: t]
   let tsu = ["updated_at" =: t]
   return $ tsu `DB.merge` d `DB.merge` tsc
-
-
-------------------------------------------------------------------------------
--- | Convert 'ObjectId' into 'ByteString'
-objid2bs :: ObjectId -> ByteString
-objid2bs (Oid a b) = B8.pack . showHex a . showChar '-' . showHex b $ ""
-
-
-------------------------------------------------------------------------------
--- | Convert 'ByteString' into 'ObjectId'
-bs2objid :: ByteString -> ObjectId
-bs2objid bs = Oid a b
-  where (a',b') = break (== '-') . B8.unpack $ bs
-        a = fst . head . readHex $ a'
-        b = fst . head . readHex $ drop 1 b'
-
-
-bs2cs :: ByteString -> UString
-bs2cs = CSI.CS
-
-
-------------------------------------------------------------------------------
--- | If the 'Document' has an 'ObjectId' in the given field, return it as
--- 'ByteString'
-getObjId :: UString -> Document -> Maybe ByteString
-getObjId v d = Database.MongoDB.lookup v d >>= fmap objid2bs
-
-
--- | Easy lookup from Snap's 'Params'
-lp :: ByteString -> Params -> Maybe ByteString
-lp n m = Map.lookup n m >>= headMay
-
-
+ 
 
 ------------------------------------------------------------------------------
 -- Snap Auth Interface
 ------------------------------------------------------------------------------
-
-
-------------------------------------------------------------------------------
--- | Make conversion to-from UserId a bit easier
-instance Val UserId where
-    val (UserId bs) = val $ bs2objid bs 
-    cast' x = fmap UserId . fmap objid2bs . cast' $ x
-
 
 ------------------------------------------------------------------------------
 -- | Turn a page from the database into 'AuthUser'
