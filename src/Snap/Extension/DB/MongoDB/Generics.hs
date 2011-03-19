@@ -14,12 +14,19 @@
 module Snap.Extension.DB.MongoDB.Generics 
 
 (
-  ToDoc(..)
-, FromDoc(..)
-, toDoc
+  -- * Conversion Functions
+  toDoc
 , fromDoc
-, RecKey(..)
 
+  -- * Useful Types
+, RecKey(..)
+, Optional(..)
+
+  -- * Needed typeclasses for Generics support
+, ToDoc(..)
+, FromDoc(..)
+
+  -- * Regular generics library exported for convenience
 , module Generics.Regular
 
 )
@@ -51,11 +58,11 @@ import Snap.Extension.DB.MongoDB.Utils
 
 
 ------------------------------------------------------------------------------
--- Use 'RecKey' type to map the _id attribute to your ADT.
+-- | Use 'RecKey' type to map the _id attribute to your ADT.
 --
--- This field will get reated differently. If it is there, it will be used. If
--- you put a 'Nothing', then it will be ommitted so that MongoDB assigns one
--- automatically. This case is for when a new record is being created.
+-- This field will get treated differently. If it is there, it will be used. If
+-- you put a 'Nothing', it will be ommitted so that MongoDB assigns one
+-- automatically. Helpful when a record is being created.
 newtype RecKey = RecKey { unRK :: Maybe ObjectId }
   deriving (Eq, Show, Typeable)
 
@@ -108,9 +115,10 @@ instance (ToDoc f, Constructor c) => ToDoc (C c f) where
   toDocPF c@(C x) = toDocPF x ++ ["_cons" =: (u . conName) c]
   
 
+------------------------------------------------------------------------------
+-- | Convert arbitrary data type into 'Document'
 toDoc :: (Regular a, ToDoc (PF a)) => a -> Document
 toDoc x = toDocPF . from $ x
-
 
 
 ------------------------------------------------------------------------------
@@ -180,7 +188,8 @@ instance (FromDoc f, FromDoc g) => FromDoc (f :*: g) where
     y <- fromDocPF d
     return $ x :*: y
 
-
+------------------------------------------------------------------------------
+-- | Convert a 'Document' into arbitrary data type.
 fromDoc :: (Regular a, FromDoc (PF a)) => Document -> Maybe a
 fromDoc d = fromDocPF d >>= return . to
 
