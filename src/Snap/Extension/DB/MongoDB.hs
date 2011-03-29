@@ -31,6 +31,7 @@ module Snap.Extension.DB.MongoDB
     -- * Utility Functions
   , getObjId
   , bs2objid
+  , bs2objid'
   , objid2bs
   , lp
 
