@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -96,6 +97,10 @@ instance ToDoc U where
 instance ToDoc I where
   toDocPF (I r) = []
 
+instance (Regular a, ToDoc (PF a)) => ToDoc (K a) where
+  toDocPF (K r) = toDoc r
+  toDocPF _ = []
+
 instance (Selector s, Val r) => ToDoc (S s (K r)) where
   toDocPF s@(S (K x)) = [u (selName s) =: x]
   toDocPF _ = []
@@ -113,7 +118,7 @@ instance (ToDoc f, ToDoc g) => ToDoc (f :*: g) where
 
 instance (ToDoc f, Constructor c) => ToDoc (C c f) where
   toDocPF c@(C x) = toDocPF x ++ ["_cons" =: (u . conName) c]
-  
+
 
 ------------------------------------------------------------------------------
 -- | Convert arbitrary data type into 'Document'
@@ -147,6 +152,11 @@ instance (GetSelectors f) => GetSelectors (C c f) where
 --
 class FromDoc f where
   fromDocPF :: Document -> Maybe (f a)
+
+
+instance (Regular a, FromDoc (PF a)) => FromDoc (K a) where
+  fromDocPF d = fromDoc d >>= return . K
+
 
 instance (Val r, Selector s) => FromDoc (S s (K r)) where
   fromDocPF d = D.lookup k d >>= return . S . K
