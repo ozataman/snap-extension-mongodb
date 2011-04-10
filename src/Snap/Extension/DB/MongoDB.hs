@@ -138,7 +138,7 @@ mongoDBInitializer :: Host
                    -> Initializer MongoDBState
 mongoDBInitializer h n db = do
   mongoState <- liftIO $ do
-    pool <- newConnPool Internet n h
+    pool <- newConnPool n h
     return $ MongoDBState pool (Database db)
   mkInitializer mongoState
 
