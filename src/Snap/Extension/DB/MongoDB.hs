@@ -90,7 +90,7 @@ import           Snap.Extension.DB.MongoDB.Utils
 
 ------------------------------------------------------------------------------
 -- | The 'MonadMongoDB' class. Minimal complete definition:
-class MonadSnap m => MonadMongoDB m where
+class MonadIO m => MonadMongoDB m where
 
   ----------------------------------------------------------------------------
   -- | Run given MongoDB action against the database
