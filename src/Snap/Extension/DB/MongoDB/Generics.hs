@@ -254,7 +254,7 @@ saveADT c adt = save c $ toDoc adt
 replaceADT :: (Regular a, ToDoc (PF a), DbAccess m) => Selection -> a -> m () -- perhaps replaceWithADT would be better?
 replaceADT s adt = replace s $ toDoc adt
 
-repsertADT :: (Regular a, ToDoc (PF a), DbAccess m) => Selection -> a -> m () -- perhaps replaceWithADT would be better?
+repsertADT :: (Regular a, ToDoc (PF a), DbAccess m) => Selection -> a -> m () -- perhaps repsertWithADT would be better?
 repsertADT s adt = repsert s $ toDoc adt
 
 --
