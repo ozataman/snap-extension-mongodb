@@ -94,7 +94,9 @@ class MonadIO m => MonadMongoDB m where
 
   ----------------------------------------------------------------------------
   -- | Run given MongoDB action against the database
-  withDB :: ReaderT Database (Action IO) a -> m (Either Failure a)
+  withDB       :: ReaderT Database (Action IO) a -> m (Either Failure a)
+  withDBUnsafe :: ReaderT Database (Action IO) a -> m (Either Failure a)
+
 
 
   ----------------------------------------------------------------------------
@@ -157,6 +159,10 @@ instance HasMongoDBState s => MonadMongoDB (SnapExtend s) where
   withDB run = do
     (MongoDBState pool db) <- asks getMongoDBState
     liftIO . access safe Master pool $ use db run
+
+  withDBUnsafe run = do
+    (MongoDBState pool db) <- asks getMongoDBState
+    liftIO . access Unsafe Master pool $ use db run
 
 
 ------------------------------------------------------------------------------
