@@ -1,5 +1,9 @@
 ## Snap Extension for MongoDB
 
+NOTE: This project is now deprecated.  The old snap extension system has been
+replaced with a new system called snaplets.  Check out the
+[snaplet directory](http://snapframework.com/snaplets) for possible alternatives.
+
 This package provides a straightforward way to integrate MongoDB database
 connectivity into Snap applications.
 
